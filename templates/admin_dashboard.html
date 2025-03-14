@@ -1,175 +1,73 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-</head>
-<body>
-   <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <div class="container">
-        <a class="navbar-brand" href="/confessions">Weird Confessions</a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" 
-                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-            <div class="navbar-nav ms-auto">
-                <!-- Page-specific links -->
-            </div>
-        </div>
-    </div>
-</nav>
-
-    <div class="container mt-4">
-        <h1 class="text-center mb-4">Admin Dashboard</h1>
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }}">{{ message }}</div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
-
-        <div class="row">
-            <div class="col-md-6">
-                <div class="card mb-4 shadow-sm">
-                    <div class="card-body">
-                        <h5 class="card-title">Pin a Confession</h5>
-                        <form method="POST">
-                            <div class="mb-3">
-                                <select name="confession_id" class="form-select" required>
-                                    <option value="">Select a Confession to Pin</option>
-                                    {% for confession, _, _ in confessions %}
-                                        <option value="{{ confession[0] }}">{{ confession[1][:50] }}... (ID: {{ confession[0] }}) - {{ confession[2] }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="mb-3">
-                                <input type="number" name="pin_days" class="form-control" min="1" placeholder="Pin Duration (days)" required>
-                            </div>
-                            <button type="submit" name="pin_confession" class="btn btn-primary">Pin Confession</button>
-                        </form>
-                    </div>
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+    <h1>Admin Dashboard</h1>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
-            </div>
-            <div class="col-md-6">
-                <div class="card mb-4 shadow-sm">
-                    <div class="card-body">
-                        <h5 class="card-title">Pin a Custom Post</h5>
-                        <form method="POST">
-                            <div class="mb-3">
-                                <textarea name="custom_text" class="form-control" rows="3" placeholder="Custom post text" required></textarea>
-                            </div>
-                            <div class="mb-3">
-                                <input type="number" name="pin_days" class="form-control" min="1" placeholder="Pin Duration (days)" required>
-                            </div>
-                            <button type="submit" name="pin_post" class="btn btn-primary">Pin Post</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
 
-        <div class="card mb-4 shadow-sm">
-            <div class="card-body">
-                <h5 class="card-title">Remove Pinned Content</h5>
-                <form method="POST">
-                    <button type="submit" name="delete_pin" class="btn btn-danger">Remove Pinned Content</button>
+    <h3>Stats</h3>
+    <p>Total Visits: {{ total_visits }}</p>
+    {% if most_liked %}
+    <p>Most Liked: "{{ most_liked[1] }}" by {{ most_liked[2] }} ({{ most_liked[3] }} likes)</p>
+    {% endif %}
+    {% if most_commented %}
+    <p>Most Commented: "{{ most_commented[1] }}" by {{ most_commented[2] }} ({{ most_commented[3] }} comments)</p>
+    {% endif %}
+
+    <h3>Pin Content</h3>
+    <form method="POST" class="mb-3">
+        <div class="mb-3">
+            <label for="custom_text" class="form-label">Custom Post</label>
+            <textarea class="form-control" id="custom_text" name="custom_text" rows="3"></textarea>
+        </div>
+        <div class="mb-3">
+            <label for="pin_days" class="form-label">Pin Duration (days)</label>
+            <input type="number" class="form-control" id="pin_days" name="pin_days" min="1" required>
+        </div>
+        <button type="submit" name="pin_post" class="btn btn-primary">Pin Post</button>
+        <button type="submit" name="delete_pin" class="btn btn-danger">Remove Pin</button>
+    </form>
+
+    <h3>Confessions</h3>
+    {% for confession, comments, avg_rating in confessions %}
+    <div class="confession-box mb-3">
+        <p>{{ confession[1] }}</p>
+        <p class="text-muted">By {{ confession[2] }} on {{ confession[3] }} | Likes: {{ confession[4] }} | Dislikes: {{ confession[5] }} | Rating: {{ "%.1f" % avg_rating }} ({{ confession[7] }})</p>
+        <form method="POST" class="d-inline">
+            <input type="hidden" name="confession_id" value="{{ confession[0] }}">
+            <button type="submit" name="delete_confession" class="btn btn-danger btn-sm">Delete</button>
+        </form>
+        <form method="POST" class="d-inline ms-2">
+            <input type="hidden" name="confession_id" value="{{ confession[0] }}">
+            <input type="number" name="pin_days" class="form-control d-inline w-auto" min="1" placeholder="Days" required>
+            <button type="submit" name="pin_confession" class="btn btn-primary btn-sm">Pin</button>
+        </form>
+        <form method="POST" class="d-inline ms-2">
+            <input type="hidden" name="confession_id" value="{{ confession[0] }}">
+            <input type="number" name="expiry_days" class="form-control d-inline w-auto" min="0" placeholder="Days" required>
+            <button type="submit" name="set_expiry" class="btn btn-warning btn-sm">Set Expiry</button>
+        </form>
+        <div class="mt-2">
+            {% for comment_id, comment, date in comments %}
+            <div class="comment-item mb-2">
+                <p>{{ comment }}</p>
+                <p class="text-muted small">{{ date }}</p>
+                <form method="POST" class="d-inline">
+                    <input type="hidden" name="comment_id" value="{{ comment_id }}">
+                    <button type="submit" name="delete_comment" class="btn btn-danger btn-sm">Delete</button>
                 </form>
             </div>
-        </div>
-
-        <div class="card mb-4 shadow-sm">
-            <div class="card-body">
-                <h5 class="card-title">All Confessions</h5>
-                <div class="row">
-                    {% for confession, comments, avg_rating in confessions %}
-                        <div class="col-12 col-md-6 col-lg-4 mb-4">
-                            <div class="confession-box">
-                                <div class="confession-text">
-                                    <p>{{ confession[1] }}</p>
-                                </div>
-                                <p class="text-muted small">By: {{ confession[2] }} | {{ confession[3] }}{% if confession[7] %} | Expires: {{ confession[7] }}{% endif %}</p>
-                                <p>Likes: {{ confession[4] }} | Rating: {{ "%.1f" % avg_rating }} ({{ confession[6] }} votes)</p>
-                                <form method="POST" class="mb-2">
-                                    <input type="hidden" name="confession_id" value="{{ confession[0] }}">
-                                    <button type="submit" name="delete_confession" class="btn btn-danger btn-sm">Delete</button>
-                                </form>
-                                <form method="POST">
-                                    <input type="hidden" name="confession_id" value="{{ confession[0] }}">
-                                    <div class="input-group mb-2">
-                                        <input type="number" name="expiry_days" class="form-control" min="0" placeholder="Expiry (days, 0 to remove)" required>
-                                        <button type="submit" name="set_expiry" class="btn btn-warning">Set Expiry</button>
-                                    </div>
-                                </form>
-                                {% if comments %}
-                                    <h6>Comments:</h6>
-                                    {% for comment in comments %}
-                                        <div class="comment mb-2 p-2 bg-light rounded">
-                                            <p class="mb-0">{{ comment[1] }}</p>
-                                            <small class="text-muted">{{ comment[2] }}</small>
-                                            <form method="POST" class="d-inline">
-                                                <input type="hidden" name="comment_id" value="{{ comment[0] }}">
-                                                <button type="submit" name="delete_comment" class="btn btn-danger btn-sm">Delete</button>
-                                            </form>
-                                        </div>
-                                    {% endfor %}
-                                {% endif %}
-                            </div>
-                        </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-
-        <div class="row">
-            <div class="col-md-4">
-                <div class="card mb-4 shadow-sm">
-                    <div class="card-body">
-                        <h5 class="card-title">Most Liked</h5>
-                        {% if most_liked %}
-                            <p>{{ most_liked[1] }}</p>
-                            <p class="text-muted small">By: {{ most_liked[2] }} | Likes: {{ most_liked[3] }}</p>
-                        {% else %}
-                            <p>No confessions yet.</p>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card mb-4 shadow-sm">
-                    <div class="card-body">
-                        <h5 class="card-title">Most Commented</h5>
-                        {% if most_commented %}
-                            <p>{{ most_commented[1] }}</p>
-                            <p class="text-muted small">By: {{ most_commented[2] }} | Comments: {{ most_commented[3] }}</p>
-                        {% else %}
-                            <p>No comments yet.</p>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="card mb-4 shadow-sm">
-                    <div class="card-body">
-                        <h5 class="card-title">Traffic Stats</h5>
-                        <p>Total Visits: {{ total_visits }}</p>
-                    </div>
-                </div>
-            </div>
+            {% endfor %}
         </div>
     </div>
-
-    <footer class="bg-dark text-light py-3 mt-4">
-        <div class="container text-center">
-            <p class="mb-0">© 2025 Weird Confessions. All rights reserved. | <a href="/confessions" class="text-light">Back to Confessions</a></p>
-        </div>
-    </footer>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+    {% endfor %}
+</div>
+{% endblock %}
