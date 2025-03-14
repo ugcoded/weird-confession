@@ -58,7 +58,7 @@ body.dark-mode .form-control:focus {
     box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
 }
 
-/* Navbar Styles (Professional Design) */
+/* Navbar Styles */
 .navbar-dark {
     background: linear-gradient(135deg, #343a40, #495057);
     padding: 0.75rem 1rem;
@@ -143,7 +143,7 @@ body.dark-mode .form-control:focus {
 .confession-text p {
     margin-bottom: 0;
     font-size: 9pt;
-    line-height: 1589;
+    line-height: 1.5;
     color: #495057;
 }
 
@@ -420,7 +420,7 @@ footer p {
     font-size: 0.9rem;
 }
 
-/* Mobile Adjustments for Navbar */
+/* Mobile Adjustments */
 @media (max-width: 768px) {
     .navbar-dark {
         padding: 0.5rem 1rem;
@@ -467,7 +467,6 @@ footer p {
         background: linear-gradient(135deg, #212529, #343a40);
     }
 
-    /* Rest of your existing mobile styles */
     .confession-box {
         padding: 12px;
     }
@@ -547,7 +546,6 @@ footer p {
         padding: 0.4rem 1rem;
     }
 
-    /* Rest of your existing small-screen styles */
     .confession-text p {
         font-size: 8pt;
     }
