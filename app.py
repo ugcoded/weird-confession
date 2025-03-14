@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import random
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'b500bf05b424886fb798ce1cb543c923')  # Set in Render env vars
+app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key-here')  # Set in Render env vars
 
 # PostgreSQL connection pool
 db_pool = None
@@ -29,56 +29,61 @@ def release_db_connection(conn):
 
 # Initialize database schema
 def init_db():
-    conn = get_db_connection()
-    c = conn.cursor()
-    # Create tables if they don’t exist
-    c.execute('''CREATE TABLE IF NOT EXISTS confessions (
-                 id SERIAL PRIMARY KEY,
-                 confession TEXT NOT NULL,
-                 name TEXT NOT NULL,
-                 date TEXT NOT NULL,
-                 likes INTEGER DEFAULT 0,
-                 rating_total REAL DEFAULT 0,
-                 rating_count INTEGER DEFAULT 0,
-                 category TEXT,
-                 tags TEXT,
-                 upvotes INTEGER DEFAULT 0,
-                 downvotes INTEGER DEFAULT 0,
-                 expiry_date TEXT)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS comments (
-                 id SERIAL PRIMARY KEY,
-                 confession_id INTEGER,
-                 comment TEXT NOT NULL,
-                 date TEXT NOT NULL,
-                 FOREIGN KEY (confession_id) REFERENCES confessions(id) ON DELETE CASCADE)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS traffic (
-                 id SERIAL PRIMARY KEY,
-                 page TEXT NOT NULL,
-                 timestamp TEXT NOT NULL)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS pinned_content (
-                 id SERIAL PRIMARY KEY,
-                 content_type TEXT NOT NULL,
-                 content_id INTEGER,
-                 custom_text TEXT,
-                 date TEXT NOT NULL,
-                 expiry_date TEXT)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS interactions (
-                 id SERIAL PRIMARY KEY,
-                 ip_address TEXT NOT NULL,
-                 confession_id INTEGER NOT NULL,
-                 action TEXT NOT NULL,
-                 value INTEGER DEFAULT 0,
-                 timestamp TEXT NOT NULL,
-                 UNIQUE(ip_address, confession_id, action),
-                 FOREIGN KEY (confession_id) REFERENCES confessions(id) ON DELETE CASCADE)''')
-    conn.commit()
-    release_db_connection(conn)
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        # Create tables if they don’t exist
+        c.execute('''CREATE TABLE IF NOT EXISTS confessions (
+                     id SERIAL PRIMARY KEY,
+                     confession TEXT NOT NULL,
+                     name TEXT NOT NULL,
+                     date TEXT NOT NULL,
+                     likes INTEGER DEFAULT 0,
+                     rating_total REAL DEFAULT 0,
+                     rating_count INTEGER DEFAULT 0,
+                     category TEXT,
+                     tags TEXT,
+                     upvotes INTEGER DEFAULT 0,
+                     downvotes INTEGER DEFAULT 0,
+                     expiry_date TEXT)''')
+        c.execute('''CREATE TABLE IF NOT EXISTS comments (
+                     id SERIAL PRIMARY KEY,
+                     confession_id INTEGER,
+                     comment TEXT NOT NULL,
+                     date TEXT NOT NULL,
+                     FOREIGN KEY (confession_id) REFERENCES confessions(id) ON DELETE CASCADE)''')
+        c.execute('''CREATE TABLE IF NOT EXISTS traffic (
+                     id SERIAL PRIMARY KEY,
+                     page TEXT NOT NULL,
+                     timestamp TEXT NOT NULL)''')
+        c.execute('''CREATE TABLE IF NOT EXISTS pinned_content (
+                     id SERIAL PRIMARY KEY,
+                     content_type TEXT NOT NULL,
+                     content_id INTEGER,
+                     custom_text TEXT,
+                     date TEXT NOT NULL,
+                     expiry_date TEXT)''')
+        c.execute('''CREATE TABLE IF NOT EXISTS interactions (
+                     id SERIAL PRIMARY KEY,
+                     ip_address TEXT NOT NULL,
+                     confession_id INTEGER NOT NULL,
+                     action TEXT NOT NULL,
+                     value INTEGER DEFAULT 0,
+                     timestamp TEXT NOT NULL,
+                     UNIQUE(ip_address, confession_id, action),
+                     FOREIGN KEY (confession_id) REFERENCES confessions(id) ON DELETE CASCADE)''')
+        conn.commit()
+        print("Database schema initialized successfully.")
+    except Exception as e:
+        print(f"Error initializing database: {e}")
+    finally:
+        release_db_connection(conn)
 
 # Run init_db() on app startup
-init_db()  # Moved outside __main__
+init_db()  # Ensures tables exist on every deploy
 
-ADMIN_USERNAME = 'admin'  # Consider moving to env vars
-ADMIN_PASSWORD = 'password123'  # Consider moving to env vars
+ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')  # Move to env vars
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'password123')  # Move to env vars
 
 def admin_required(f):
     def wrap(*args, **kwargs):
