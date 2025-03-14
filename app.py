@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import random
 
 app = Flask(__name__)
-app.secret_key = 'your-secret-key-here'  # Change this to a random string for security
+app.secret_key = 'b500bf05b424886fb798ce1cb543c923'  # Change this to a random string for security
 
 ADMIN_USERNAME = 'admin'
 ADMIN_PASSWORD = 'password123'
