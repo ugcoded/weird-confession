@@ -29,7 +29,7 @@ def init_db():
         c = conn.cursor()
         c.execute('''CREATE TABLE IF NOT EXISTS confessions (
                      id SERIAL PRIMARY KEY, confession TEXT NOT NULL, name TEXT NOT NULL, date TEXT NOT NULL,
-                     likes INTEGER DEFAULT 0, rating_total REAL DEFAULT 0, rating_count INTEGER DEFAULT 0,
+                     likes INTEGER DEFAULT 0, dislikes INTEGER DEFAULT 0, rating_total REAL DEFAULT 0, rating_count INTEGER DEFAULT 0,
                      category TEXT, tags TEXT, upvotes INTEGER DEFAULT 0, downvotes INTEGER DEFAULT 0, expiry_date TEXT)''')
         c.execute('''CREATE TABLE IF NOT EXISTS comments (
                      id SERIAL PRIMARY KEY, confession_id INTEGER, comment TEXT NOT NULL, date TEXT NOT NULL,
@@ -136,11 +136,23 @@ def confessions():
             else:
                 flash('You already upvoted this confession.', 'warning')
         elif 'like' in request.form and not has_interaction('like'):
-            c.execute("UPDATE confessions SET likes = likes + 1 WHERE id = %s", (confession_id,))
-            c.execute("INSERT INTO interactions (ip_address, confession_id, action, timestamp) VALUES (%s, %s, %s, %s)",
-                      (client_ip, confession_id, 'like', datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-            action_performed = True
-            flash('Liked successfully!', 'success')
+            if not has_interaction('dislike'):
+                c.execute("UPDATE confessions SET likes = likes + 1 WHERE id = %s", (confession_id,))
+                c.execute("INSERT INTO interactions (ip_address, confession_id, action, timestamp) VALUES (%s, %s, %s, %s)",
+                          (client_ip, confession_id, 'like', datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                action_performed = True
+                flash('Liked successfully!', 'success')
+            else:
+                flash('You already disliked this confession.', 'warning')
+        elif 'dislike' in request.form and not has_interaction('dislike'):
+            if not has_interaction('like'):
+                c.execute("UPDATE confessions SET dislikes = dislikes + 1 WHERE id = %s", (confession_id,))
+                c.execute("INSERT INTO interactions (ip_address, confession_id, action, timestamp) VALUES (%s, %s, %s, %s)",
+                          (client_ip, confession_id, 'dislike', datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                action_performed = True
+                flash('Disliked successfully!', 'success')
+            else:
+                flash('You already liked this confession.', 'warning')
         elif 'rating' in request.form and not has_interaction('rating'):
             rating = int(request.form['rating'])
             c.execute("UPDATE confessions SET rating_total = rating_total + %s, rating_count = rating_count + 1 WHERE id = %s",
@@ -181,16 +193,16 @@ def confessions():
                 pinned_content = pinned[2]
                 pinned_name = "Admin"
 
-    c.execute("SELECT id, confession, name, date, likes, rating_total, rating_count, category, tags, upvotes, downvotes, expiry_date FROM confessions WHERE expiry_date IS NULL OR expiry_date > %s ORDER BY date DESC",
+    c.execute("SELECT id, confession, name, date, likes, dislikes, rating_total, rating_count, category, tags, upvotes, downvotes, expiry_date FROM confessions WHERE expiry_date IS NULL OR expiry_date > %s ORDER BY date DESC",
               (datetime.now().strftime("%Y-%m-%d %H:%M:%S"),))
     confessions_list = c.fetchall()
     confessions_with_data = []
     for conf in confessions_list:
         c.execute("SELECT comment, date FROM comments WHERE confession_id = %s ORDER BY date ASC", (conf[0],))
         comments = c.fetchall()
-        comment_count = len(comments)  # Fixed: Removed "Leia mais"
-        avg_rating = (conf[5] / conf[6]) if conf[6] > 0 else 0
-        score = conf[9] - conf[10]
+        comment_count = len(comments)
+        avg_rating = (conf[6] / conf[7]) if conf[7] > 0 else 0  # Updated indices for rating_total and rating_count
+        score = conf[10] - conf[11]  # Updated indices for upvotes and downvotes
         c.execute("SELECT action FROM interactions WHERE ip_address = %s AND confession_id = %s", (client_ip, conf[0]))
         interactions = {row[0] for row in c.fetchall()}
         confessions_with_data.append((conf, comments, avg_rating, comment_count, score, interactions))
@@ -286,13 +298,13 @@ def admin_dashboard():
                 flash('Expiry removed from confession.', 'success')
             conn.commit()
 
-    c.execute("SELECT id, confession, name, date, likes, rating_total, rating_count, expiry_date FROM confessions ORDER BY date DESC")
+    c.execute("SELECT id, confession, name, date, likes, dislikes, rating_total, rating_count, expiry_date FROM confessions ORDER BY date DESC")
     confessions_list = c.fetchall()
     confessions_with_comments = []
     for conf in confessions_list:
         c.execute("SELECT id, comment, date FROM comments WHERE confession_id = %s ORDER BY date ASC", (conf[0],))
         comments = c.fetchall()
-        avg_rating = (conf[5] / conf[6]) if conf[6] > 0 else 0
+        avg_rating = (conf[6] / conf[7]) if conf[7] > 0 else 0
         confessions_with_comments.append((conf, comments, avg_rating))
 
     c.execute("SELECT id, confession, name, likes FROM confessions ORDER BY likes DESC LIMIT 1")
