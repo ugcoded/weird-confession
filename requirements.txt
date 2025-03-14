@@ -36,4 +36,4 @@ virtualenv==20.29.3
 Werkzeug==2.3.7
 WTForms==3.0.1
 gunicorn
-psycopg2-binary==2.9.9
+
