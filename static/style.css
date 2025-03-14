@@ -307,21 +307,22 @@ body.dark-mode .toggle-comments:hover {
 }
 
 .form-select-sm {
-    padding: 4px 24px 4px 8px; /* Increased right padding to avoid arrow overlap */
+    padding: 4px 8px; /* Uniform padding, no extra right space for arrow */
     font-size: 0.8rem;
-    min-width: 70px; /* Slightly wider to fit text and arrow */
+    min-width: 70px; /* Wide enough for text */
     border-radius: 4px;
-    background-position: right 6px center; /* Adjust arrow position */
-    background-size: 12px; /* Smaller arrow */
-    appearance: none; /* Ensure custom styling */
+    appearance: none; /* Remove default arrow */
     -webkit-appearance: none;
     -moz-appearance: none;
+    background-image: none; /* Explicitly remove Bootstrap's arrow */
+    border: 1px solid #ced4da; /* Consistent border */
 }
 
 body.dark-mode .form-select-sm {
     background-color: #495057;
     color: #e9ecef;
     border-color: #6c757d;
+    background-image: none; /* Ensure no arrow in dark mode */
 }
 
 h1 {
@@ -415,9 +416,9 @@ footer p {
     }
     .form-select-sm {
         font-size: 0.75rem;
-        padding: 3px 20px 3px 6px; /* Adjusted padding for mobile */
-        min-width: 60px; /* Slightly smaller but still readable */
-        background-position: right 4px center; /* Adjust arrow */
+        padding: 3px 6px; /* Adjusted padding, no arrow */
+        min-width: 60px;
+        background-image: none; /* No arrow */
     }
     .rating-display {
         font-size: 0.8rem;
@@ -461,8 +462,9 @@ footer p {
         padding: 2px 5px;
     }
     .form-select-sm {
-        padding: 2px 18px 2px 5px; /* Further adjusted */
+        padding: 2px 5px; /* Adjusted, no arrow */
         min-width: 55px;
+        background-image: none; /* No arrow */
     }
     footer p {
         font-size: 0.8rem;
