@@ -142,7 +142,7 @@ def confessions():
         confession_id = request.form['confession_id']
         action_performed = False
 
-        # Check if the action is already recorded for this IP and confession
+        # Helper to check if action exists
         def has_interaction(action):
             c.execute("SELECT id FROM interactions WHERE ip_address = %s AND confession_id = %s AND action = %s",
                       (client_ip, confession_id, action))
@@ -150,23 +150,25 @@ def confessions():
 
         # Upvote
         if 'upvote' in request.form and not has_interaction('upvote'):
-            if not has_interaction('downvote'):  # Prevent upvote if already downvoted
+            if not has_interaction('downvote'):
                 c.execute("UPDATE confessions SET upvotes = upvotes + 1 WHERE id = %s", (confession_id,))
                 c.execute("INSERT INTO interactions (ip_address, confession_id, action, timestamp) VALUES (%s, %s, %s, %s)",
                           (client_ip, confession_id, 'upvote', datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                 action_performed = True
+                flash('Upvoted successfully!', 'success')
             else:
-                flash('You have already downvoted this confession and cannot upvote it.', 'warning')
+                flash('You already downvoted this confession.', 'warning')
 
         # Downvote
         elif 'downvote' in request.form and not has_interaction('downvote'):
-            if not has_interaction('upvote'):  # Prevent downvote if already upvoted
+            if not has_interaction('upvote'):
                 c.execute("UPDATE confessions SET downvotes = downvotes + 1 WHERE id = %s", (confession_id,))
                 c.execute("INSERT INTO interactions (ip_address, confession_id, action, timestamp) VALUES (%s, %s, %s, %s)",
                           (client_ip, confession_id, 'downvote', datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                 action_performed = True
+                flash('Downvoted successfully!', 'success')
             else:
-                flash('You have already upvoted this confession and cannot downvote it.', 'warning')
+                flash('You already upvoted this confession.', 'warning')
 
         # Like
         elif 'like' in request.form and not has_interaction('like'):
@@ -174,6 +176,7 @@ def confessions():
             c.execute("INSERT INTO interactions (ip_address, confession_id, action, timestamp) VALUES (%s, %s, %s, %s)",
                       (client_ip, confession_id, 'like', datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
             action_performed = True
+            flash('Liked successfully!', 'success')
 
         # Rating
         elif 'rating' in request.form and not has_interaction('rating'):
@@ -183,26 +186,28 @@ def confessions():
             c.execute("INSERT INTO interactions (ip_address, confession_id, action, value, timestamp) VALUES (%s, %s, %s, %s, %s)",
                       (client_ip, confession_id, 'rating', rating, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
             action_performed = True
+            flash('Rated successfully!', 'success')
 
-        # Comment (allow multiple comments, but record as an interaction once)
+        # Comment (record action once, allow multiple comments)
         elif 'comment' in request.form:
             comment = request.form['comment'].strip()
             if comment:
                 c.execute("INSERT INTO comments (confession_id, comment, date) VALUES (%s, %s, %s)",
                           (confession_id, comment, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-                # Record comment action only once in interactions
                 if not has_interaction('comment'):
                     c.execute("INSERT INTO interactions (ip_address, confession_id, action, timestamp) VALUES (%s, %s, %s, %s)",
                               (client_ip, confession_id, 'comment', datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                 action_performed = True
+                flash('Comment added successfully!', 'success')
 
         if action_performed:
             conn.commit()
-            flash('Action recorded successfully!', 'success')
-        elif 'like' in request.form or 'upvote' in request.form or 'downvote' in request.form or 'rating' in request.form:
-            flash('You have already performed this action on this confession.', 'warning')
 
-    # Fetch pinned content
+        # Redirect to avoid resubmission on refresh
+        release_db_connection(conn)
+        return redirect(url_for('confessions'))
+
+    # GET request: Fetch confessions and render page
     pinned_content = None
     pinned_name = None
     c.execute("SELECT content_type, content_id, custom_text, expiry_date FROM pinned_content ORDER BY date DESC LIMIT 1")
@@ -219,7 +224,6 @@ def confessions():
                 pinned_content = pinned[2]
                 pinned_name = "Admin"
 
-    # Fetch confessions and interactions
     c.execute("SELECT id, confession, name, date, likes, rating_total, rating_count, category, tags, upvotes, downvotes, expiry_date FROM confessions WHERE expiry_date IS NULL OR expiry_date > %s ORDER BY date DESC",
               (datetime.now().strftime("%Y-%m-%d %H:%M:%S"),))
     confessions_list = c.fetchall()
