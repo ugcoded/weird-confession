@@ -2,7 +2,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,700;1,400&display=swap');
 
 body {
-    background-color: #f8f9fa; /* Softer gray */
+    background-color: #f8f9fa;
     font-family: 'Roboto', sans-serif;
     font-size: 1rem;
     color: #333;
@@ -24,7 +24,7 @@ body.dark-mode .comment-item {
 }
 
 body.dark-mode .navbar-dark {
-    background: linear-gradient(135deg, #212529, #343a40); /* Gradient for depth */
+    background: linear-gradient(135deg, #212529, #343a40);
 }
 
 body.dark-mode .btn-outline-light {
@@ -61,7 +61,7 @@ body.dark-mode .form-control:focus {
 .confession-box {
     background-color: #fff;
     border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Softer shadow */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     padding: 15px;
     margin-bottom: 20px;
     border: 1px solid #e9ecef;
@@ -83,7 +83,7 @@ body.dark-mode .form-control:focus {
 }
 
 .confession-text {
-    max-height: 120px; /* Adjusted for better fit */
+    max-height: 120px;
     overflow-y: auto;
     padding-right: 8px;
 }
@@ -91,7 +91,7 @@ body.dark-mode .form-control:focus {
 .confession-text p {
     margin-bottom: 0;
     font-size: 9pt;
-    line-height: 1.5; /* Improved readability */
+    line-height: 1.5;
     color: #495057;
 }
 
@@ -109,16 +109,19 @@ body.dark-mode .confession-text p {
     padding: 10px 0;
     border-top: 1px solid #dee2e6;
     display: flex;
+    flex-wrap: nowrap; /* Force single row */
     align-items: center;
-    gap: 6px;
-    flex-wrap: nowrap; /* Keep in one row */
-    overflow-x: auto; /* Scroll if needed */
+    gap: 6px; /* Consistent spacing */
+    overflow-x: auto; /* Horizontal scroll if needed */
+    white-space: nowrap; /* Prevent wrapping */
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
 }
 
 .interaction-form,
 .rating-form,
 .like-form {
     display: inline-flex;
+    align-items: center;
     gap: 4px;
 }
 
@@ -200,7 +203,7 @@ body.dark-mode .comment-text {
 }
 
 .btn-primary {
-    background: linear-gradient(135deg, #0d6efd, #0a58ca); /* Gradient */
+    background: linear-gradient(135deg, #0d6efd, #0a58ca);
     border: none;
     font-weight: 600;
     padding: 6px 12px;
@@ -307,22 +310,22 @@ body.dark-mode .toggle-comments:hover {
 }
 
 .form-select-sm {
-    padding: 4px 8px; /* Uniform padding, no extra right space for arrow */
+    padding: 4px 8px;
     font-size: 0.8rem;
-    min-width: 70px; /* Wide enough for text */
+    min-width: 70px;
     border-radius: 4px;
-    appearance: none; /* Remove default arrow */
+    appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
-    background-image: none; /* Explicitly remove Bootstrap's arrow */
-    border: 1px solid #ced4da; /* Consistent border */
+    background-image: none;
+    border: 1px solid #ced4da;
 }
 
 body.dark-mode .form-select-sm {
     background-color: #495057;
     color: #e9ecef;
     border-color: #6c757d;
-    background-image: none; /* Ensure no arrow in dark mode */
+    background-image: none;
 }
 
 h1 {
@@ -384,7 +387,7 @@ footer p {
 @media (max-width: 768px) {
     .navbar-nav {
         padding: 10px 0;
-        background-color: #343a40; /* Menu background */
+        background-color: #343a40;
         border-radius: 0 0 8px 8px;
     }
     .navbar-nav .nav-link {
@@ -401,14 +404,14 @@ footer p {
         max-height: 100px;
     }
     .interaction-section {
-        gap: 4px; /* Tighten spacing */
+        gap: 4px;
         padding: 8px 0;
         flex-wrap: nowrap; /* Force single row */
     }
     .btn-sm {
         font-size: 0.75rem;
         padding: 3px 6px;
-        min-width: 44px; /* Touch-friendly */
+        min-width: 40px; /* Smaller but touch-friendly */
     }
     .share-btn,
     .toggle-comments {
@@ -416,9 +419,9 @@ footer p {
     }
     .form-select-sm {
         font-size: 0.75rem;
-        padding: 3px 6px; /* Adjusted padding, no arrow */
+        padding: 3px 6px;
         min-width: 60px;
-        background-image: none; /* No arrow */
+        background-image: none;
     }
     .rating-display {
         font-size: 0.8rem;
@@ -460,13 +463,30 @@ footer p {
     .btn-sm {
         font-size: 0.7rem;
         padding: 2px 5px;
+        min-width: 36px; /* Adjusted for smaller screens */
     }
     .form-select-sm {
-        padding: 2px 5px; /* Adjusted, no arrow */
+        padding: 2px 5px;
         min-width: 55px;
-        background-image: none; /* No arrow */
+        background-image: none;
     }
     footer p {
         font-size: 0.8rem;
+    }
+}
+
+@media (max-width: 320px) {
+    .btn-sm {
+        font-size: 0.65rem;
+        padding: 2px 4px;
+        min-width: 32px; /* Minimum for very small screens */
+    }
+    .form-select-sm {
+        font-size: 0.65rem;
+        padding: 2px 4px;
+        min-width: 50px;
+    }
+    .rating-display {
+        font-size: 0.75rem;
     }
 }
