@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import random
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key-here')  # Set in Render env vars
+app.secret_key = os.environ.get('SECRET_KEY', 'b500bf05b424886fb798ce1cb543c923')  # Set in Render env vars
 
 # PostgreSQL connection pool
 db_pool = None
