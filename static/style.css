@@ -307,10 +307,21 @@ body.dark-mode .toggle-comments:hover {
 }
 
 .form-select-sm {
-    padding: 4px 12px 4px 6px;
+    padding: 4px 24px 4px 8px; /* Increased right padding to avoid arrow overlap */
     font-size: 0.8rem;
-    min-width: 60px;
+    min-width: 70px; /* Slightly wider to fit text and arrow */
     border-radius: 4px;
+    background-position: right 6px center; /* Adjust arrow position */
+    background-size: 12px; /* Smaller arrow */
+    appearance: none; /* Ensure custom styling */
+    -webkit-appearance: none;
+    -moz-appearance: none;
+}
+
+body.dark-mode .form-select-sm {
+    background-color: #495057;
+    color: #e9ecef;
+    border-color: #6c757d;
 }
 
 h1 {
@@ -404,8 +415,9 @@ footer p {
     }
     .form-select-sm {
         font-size: 0.75rem;
-        padding: 3px 8px;
-        min-width: 50px;
+        padding: 3px 20px 3px 6px; /* Adjusted padding for mobile */
+        min-width: 60px; /* Slightly smaller but still readable */
+        background-position: right 4px center; /* Adjust arrow */
     }
     .rating-display {
         font-size: 0.8rem;
@@ -447,6 +459,10 @@ footer p {
     .btn-sm {
         font-size: 0.7rem;
         padding: 2px 5px;
+    }
+    .form-select-sm {
+        padding: 2px 18px 2px 5px; /* Further adjusted */
+        min-width: 55px;
     }
     footer p {
         font-size: 0.8rem;
