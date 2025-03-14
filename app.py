@@ -142,72 +142,67 @@ def confessions():
         confession_id = request.form['confession_id']
         action_performed = False
 
-        if 'like' in request.form:
+        # Check if the action is already recorded for this IP and confession
+        def has_interaction(action):
             c.execute("SELECT id FROM interactions WHERE ip_address = %s AND confession_id = %s AND action = %s",
-                      (client_ip, confession_id, 'like'))
-            if not c.fetchone():
-                c.execute("UPDATE confessions SET likes = likes + 1 WHERE id = %s", (confession_id,))
+                      (client_ip, confession_id, action))
+            return c.fetchone() is not None
+
+        # Upvote
+        if 'upvote' in request.form and not has_interaction('upvote'):
+            if not has_interaction('downvote'):  # Prevent upvote if already downvoted
+                c.execute("UPDATE confessions SET upvotes = upvotes + 1 WHERE id = %s", (confession_id,))
                 c.execute("INSERT INTO interactions (ip_address, confession_id, action, timestamp) VALUES (%s, %s, %s, %s)",
-                          (client_ip, confession_id, 'like', datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                          (client_ip, confession_id, 'upvote', datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                 action_performed = True
             else:
-                flash('You have already liked this confession.', 'warning')
+                flash('You have already downvoted this confession and cannot upvote it.', 'warning')
 
-        elif 'upvote' in request.form:
-            c.execute("SELECT id FROM interactions WHERE ip_address = %s AND confession_id = %s AND action = %s",
-                      (client_ip, confession_id, 'upvote'))
-            if not c.fetchone():
-                c.execute("SELECT id FROM interactions WHERE ip_address = %s AND confession_id = %s AND action = %s",
-                          (client_ip, confession_id, 'downvote'))
-                if not c.fetchone():
-                    c.execute("UPDATE confessions SET upvotes = upvotes + 1 WHERE id = %s", (confession_id,))
-                    c.execute("INSERT INTO interactions (ip_address, confession_id, action, timestamp) VALUES (%s, %s, %s, %s)",
-                              (client_ip, confession_id, 'upvote', datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-                    action_performed = True
-                else:
-                    flash('You have already downvoted this confession and cannot upvote it.', 'warning')
-            else:
-                flash('You have already upvoted this confession.', 'warning')
-
-        elif 'downvote' in request.form:
-            c.execute("SELECT id FROM interactions WHERE ip_address = %s AND confession_id = %s AND action = %s",
-                      (client_ip, confession_id, 'downvote'))
-            if not c.fetchone():
-                c.execute("SELECT id FROM interactions WHERE ip_address = %s AND confession_id = %s AND action = %s",
-                          (client_ip, confession_id, 'upvote'))
-                if not c.fetchone():
-                    c.execute("UPDATE confessions SET downvotes = downvotes + 1 WHERE id = %s", (confession_id,))
-                    c.execute("INSERT INTO interactions (ip_address, confession_id, action, timestamp) VALUES (%s, %s, %s, %s)",
-                              (client_ip, confession_id, 'downvote', datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-                    action_performed = True
-                else:
-                    flash('You have already upvoted this confession and cannot downvote it.', 'warning')
-            else:
-                flash('You have already downvoted this confession.', 'warning')
-
-        elif 'rating' in request.form:
-            c.execute("SELECT id FROM interactions WHERE ip_address = %s AND confession_id = %s AND action = %s",
-                      (client_ip, confession_id, 'rating'))
-            if not c.fetchone():
-                rating = int(request.form['rating'])
-                c.execute("UPDATE confessions SET rating_total = rating_total + %s, rating_count = rating_count + 1 WHERE id = %s",
-                          (rating, confession_id))
-                c.execute("INSERT INTO interactions (ip_address, confession_id, action, value, timestamp) VALUES (%s, %s, %s, %s, %s)",
-                          (client_ip, confession_id, 'rating', rating, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+        # Downvote
+        elif 'downvote' in request.form and not has_interaction('downvote'):
+            if not has_interaction('upvote'):  # Prevent downvote if already upvoted
+                c.execute("UPDATE confessions SET downvotes = downvotes + 1 WHERE id = %s", (confession_id,))
+                c.execute("INSERT INTO interactions (ip_address, confession_id, action, timestamp) VALUES (%s, %s, %s, %s)",
+                          (client_ip, confession_id, 'downvote', datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                 action_performed = True
             else:
-                flash('You have already rated this confession.', 'warning')
+                flash('You have already upvoted this confession and cannot downvote it.', 'warning')
 
+        # Like
+        elif 'like' in request.form and not has_interaction('like'):
+            c.execute("UPDATE confessions SET likes = likes + 1 WHERE id = %s", (confession_id,))
+            c.execute("INSERT INTO interactions (ip_address, confession_id, action, timestamp) VALUES (%s, %s, %s, %s)",
+                      (client_ip, confession_id, 'like', datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+            action_performed = True
+
+        # Rating
+        elif 'rating' in request.form and not has_interaction('rating'):
+            rating = int(request.form['rating'])
+            c.execute("UPDATE confessions SET rating_total = rating_total + %s, rating_count = rating_count + 1 WHERE id = %s",
+                      (rating, confession_id))
+            c.execute("INSERT INTO interactions (ip_address, confession_id, action, value, timestamp) VALUES (%s, %s, %s, %s, %s)",
+                      (client_ip, confession_id, 'rating', rating, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+            action_performed = True
+
+        # Comment (allow multiple comments, but record as an interaction once)
         elif 'comment' in request.form:
             comment = request.form['comment'].strip()
             if comment:
                 c.execute("INSERT INTO comments (confession_id, comment, date) VALUES (%s, %s, %s)",
                           (confession_id, comment, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                # Record comment action only once in interactions
+                if not has_interaction('comment'):
+                    c.execute("INSERT INTO interactions (ip_address, confession_id, action, timestamp) VALUES (%s, %s, %s, %s)",
+                              (client_ip, confession_id, 'comment', datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                 action_performed = True
 
         if action_performed:
             conn.commit()
+            flash('Action recorded successfully!', 'success')
+        elif 'like' in request.form or 'upvote' in request.form or 'downvote' in request.form or 'rating' in request.form:
+            flash('You have already performed this action on this confession.', 'warning')
 
+    # Fetch pinned content
     pinned_content = None
     pinned_name = None
     c.execute("SELECT content_type, content_id, custom_text, expiry_date FROM pinned_content ORDER BY date DESC LIMIT 1")
@@ -224,6 +219,7 @@ def confessions():
                 pinned_content = pinned[2]
                 pinned_name = "Admin"
 
+    # Fetch confessions and interactions
     c.execute("SELECT id, confession, name, date, likes, rating_total, rating_count, category, tags, upvotes, downvotes, expiry_date FROM confessions WHERE expiry_date IS NULL OR expiry_date > %s ORDER BY date DESC",
               (datetime.now().strftime("%Y-%m-%d %H:%M:%S"),))
     confessions_list = c.fetchall()
