@@ -61,7 +61,7 @@ body.dark-mode .form-control:focus {
     background-color: #fff;
     border-radius: 10px;
     box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-    padding: 20px;
+    padding: 15px; /* Reduced padding for mobile */
     margin-bottom: 20px;
     border: 1px solid #ddd;
     transition: transform 0.2s, box-shadow 0.2s;
@@ -99,27 +99,28 @@ body.dark-mode .confession-text p {
 
 .confession-content .text-muted {
     margin-top: 10px;
+    font-size: 0.85rem; /* Slightly smaller for mobile */
 }
 
 .interaction-section {
-    padding: 12px 0;
+    padding: 10px 0; /* Reduced padding */
     border-top: 2px solid #e0e0e0;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px; /* Reduced gap */
     flex-wrap: wrap;
 }
 
 .rating-display {
-    font-size: 1rem;
+    font-size: 0.9rem; /* Smaller for mobile */
     color: #ffca28;
     font-weight: 600;
 }
 
 .comments-section {
     border-top: 2px solid #e0e0e0;
-    padding: 20px 0;
-    max-height: 320px;
+    padding: 15px 0; /* Reduced padding */
+    max-height: 250px; /* Adjusted for mobile */
     overflow-y: auto;
     background-color: #fafafa;
     border-radius: 0 0 10px 10px;
@@ -127,14 +128,14 @@ body.dark-mode .confession-text p {
 }
 
 .comments-header {
-    padding-bottom: 12px;
+    padding-bottom: 10px;
     border-bottom: 2px solid #ddd;
 }
 
 .comments-header h6 {
     font-weight: 700;
     color: #222;
-    font-size: 1.2rem;
+    font-size: 1.1rem; /* Slightly smaller */
 }
 
 body.dark-mode .comments-header h6 {
@@ -142,11 +143,11 @@ body.dark-mode .comments-header h6 {
 }
 
 .comments-list {
-    padding: 15px 0;
+    padding: 10px 0; /* Reduced padding */
 }
 
 .comment-item {
-    padding: 12px;
+    padding: 10px; /* Reduced padding */
     border-radius: 8px;
     background-color: #fff;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -166,7 +167,7 @@ body.dark-mode .comments-header h6 {
 }
 
 .comment-text {
-    font-size: 1rem;
+    font-size: 0.9rem; /* Smaller for mobile */
     color: #333;
     margin-bottom: 5px;
 }
@@ -179,7 +180,7 @@ body.dark-mode .comment-text {
     background-color: #0288d1;
     border-color: #0288d1;
     font-weight: 600;
-    padding: 8px 16px;
+    padding: 6px 12px; /* Reduced padding */
 }
 
 .btn-primary:hover {
@@ -191,6 +192,7 @@ body.dark-mode .comment-text {
     border-color: #4caf50;
     color: #4caf50;
     font-weight: 600;
+    padding: 4px 10px; /* Adjusted */
 }
 
 .btn-outline-success:hover {
@@ -202,6 +204,7 @@ body.dark-mode .comment-text {
     border-color: #d32f2f;
     color: #d32f2f;
     font-weight: 600;
+    padding: 4px 10px; /* Adjusted */
 }
 
 .btn-outline-danger:hover {
@@ -213,6 +216,7 @@ body.dark-mode .comment-text {
     border-color: #0288d1;
     color: #0288d1;
     font-weight: 600;
+    padding: 4px 10px; /* Adjusted */
 }
 
 .btn-outline-primary:hover {
@@ -226,19 +230,19 @@ body.dark-mode .comment-text {
 }
 
 .pinned-content .card-header {
-    padding: 12px;
+    padding: 10px; /* Reduced padding */
     background-color: #ffca28;
     color: #333;
     font-weight: 700;
 }
 
 .pinned-content .card-body {
-    padding: 20px;
+    padding: 15px; /* Reduced padding */
 }
 
 .share-btn {
-    font-size: 0.9rem;
-    padding: 4px 12px;
+    font-size: 0.8rem; /* Smaller for mobile */
+    padding: 4px 10px;
     border-color: #0288d1;
     color: #0288d1;
 }
@@ -269,24 +273,32 @@ body.dark-mode .comment-text {
 
 .btn-outline-success,
 .btn-outline-danger {
-    padding: 4px 12px;
-    font-size: 0.9rem;
+    padding: 4px 10px;
+    font-size: 0.8rem; /* Smaller for mobile */
 }
 
 .form-select-sm {
-    padding: 4px 20px 4px 8px;
-    font-size: 0.9rem;
-    min-width: 80px;
-    margin-left: 8px;
+    padding: 4px 15px 4px 6px; /* Adjusted */
+    font-size: 0.8rem;
+    min-width: 70px; /* Reduced width */
+    margin-left: 4px; /* Reduced margin */
 }
 
-h3 {
-    font-size: 1.5rem;
-    margin-bottom: 20px;
+h1 {
+    font-size: 1.8rem; /* Smaller for mobile */
+    margin-bottom: 15px;
     color: #222;
     font-weight: 700;
 }
 
+h3 {
+    font-size: 1.3rem; /* Smaller for mobile */
+    margin-bottom: 15px;
+    color: #222;
+    font-weight: 700;
+}
+
+body.dark-mode h1,
 body.dark-mode h3 {
     color: #e0e0e0;
 }
@@ -308,16 +320,18 @@ body.dark-mode .row.mb-4 a {
 
 .navbar-dark .navbar-brand {
     font-weight: 700;
-    font-size: 1.5rem;
+    font-size: 1.3rem; /* Slightly smaller */
 }
 
 .navbar-dark .nav-link {
     font-weight: 600;
+    padding: 8px 12px; /* Adjusted padding */
 }
 
 footer {
-    background-color: #343a40; /* Matches bg-dark */
+    background-color: #343a40;
     color: #e0e0e0;
+    padding: 15px 0; /* Reduced padding */
 }
 
 footer a {
@@ -330,29 +344,75 @@ footer a:hover {
     text-decoration: underline;
 }
 
+footer p {
+    font-size: 0.9rem; /* Smaller for mobile */
+}
+
 /* Mobile adjustments */
 @media (max-width: 768px) {
+    .navbar-nav {
+        padding: 10px 0; /* Add padding to menu items */
+    }
+    .navbar-nav .nav-link {
+        padding: 10px 15px; /* More touch-friendly */
+        text-align: left;
+    }
+    .navbar-nav .btn {
+        margin: 10px 15px; /* Space for dark mode toggle */
+    }
     .confession-box {
-        min-height: 280px;
+        min-height: auto; /* Remove fixed height */
+        padding: 10px; /* Further reduced */
     }
     .confession-text {
-        max-height: 120px;
+        max-height: 100px; /* Smaller for mobile */
     }
     .comments-section {
-        max-height: 250px;
+        max-height: 200px; /* Smaller for mobile */
+        padding: 10px 0;
     }
     .interaction-section {
         flex-direction: column;
         align-items: flex-start;
-        gap: 8px;
+        gap: 6px;
     }
-    .navbar-nav {
-        text-align: center;
-    }
-    h3 {
-        font-size: 1.3rem;
+    .btn-sm {
+        font-size: 0.75rem; /* Even smaller buttons */
+        padding: 3px 8px;
     }
     .form-select-sm {
         margin-left: 0;
+        width: 100%; /* Full width on mobile */
+        margin-top: 5px;
+    }
+    h1 {
+        font-size: 1.5rem;
+    }
+    h3 {
+        font-size: 1.2rem;
+    }
+    .container {
+        padding-left: 10px;
+        padding-right: 10px; /* Reduced padding */
+    }
+    .comment-item {
+        flex-direction: column; /* Stack avatar and text */
+        align-items: flex-start;
+    }
+    .comment-avatar {
+        margin-bottom: 5px;
+    }
+}
+
+/* Extra small screens (e.g., <576px) */
+@media (max-width: 576px) {
+    .navbar-brand {
+        font-size: 1.1rem;
+    }
+    .confession-text p {
+        font-size: 8pt; /* Slightly smaller for tiny screens */
+    }
+    footer p {
+        font-size: 0.8rem;
     }
 }
