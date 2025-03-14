@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import random
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'b500bf05b424886fb798ce1cb543c923')  # Set in Render env vars
+app.secret_key = os.environ.get('SECRET_KEY', 'b500bf05b424886fb798ce1cb543c923')
 
 # PostgreSQL connection pool
 db_pool = None
@@ -17,60 +17,31 @@ def get_db_connection():
         db_url = os.environ.get('DATABASE_URL')
         if not db_url:
             raise ValueError("DATABASE_URL environment variable not set")
-        db_pool = psycopg2.pool.SimpleConnectionPool(
-            1, 20,  # Min 1, max 20 connections
-            dsn=db_url,
-            sslmode='require'  # Render requires SSL
-        )
+        db_pool = psycopg2.pool.SimpleConnectionPool(1, 20, dsn=db_url, sslmode='require')
     return db_pool.getconn()
 
 def release_db_connection(conn):
     db_pool.putconn(conn)
 
-# Initialize database schema
 def init_db():
     try:
         conn = get_db_connection()
         c = conn.cursor()
-        # Create tables if they don’t exist
         c.execute('''CREATE TABLE IF NOT EXISTS confessions (
-                     id SERIAL PRIMARY KEY,
-                     confession TEXT NOT NULL,
-                     name TEXT NOT NULL,
-                     date TEXT NOT NULL,
-                     likes INTEGER DEFAULT 0,
-                     rating_total REAL DEFAULT 0,
-                     rating_count INTEGER DEFAULT 0,
-                     category TEXT,
-                     tags TEXT,
-                     upvotes INTEGER DEFAULT 0,
-                     downvotes INTEGER DEFAULT 0,
-                     expiry_date TEXT)''')
+                     id SERIAL PRIMARY KEY, confession TEXT NOT NULL, name TEXT NOT NULL, date TEXT NOT NULL,
+                     likes INTEGER DEFAULT 0, rating_total REAL DEFAULT 0, rating_count INTEGER DEFAULT 0,
+                     category TEXT, tags TEXT, upvotes INTEGER DEFAULT 0, downvotes INTEGER DEFAULT 0, expiry_date TEXT)''')
         c.execute('''CREATE TABLE IF NOT EXISTS comments (
-                     id SERIAL PRIMARY KEY,
-                     confession_id INTEGER,
-                     comment TEXT NOT NULL,
-                     date TEXT NOT NULL,
+                     id SERIAL PRIMARY KEY, confession_id INTEGER, comment TEXT NOT NULL, date TEXT NOT NULL,
                      FOREIGN KEY (confession_id) REFERENCES confessions(id) ON DELETE CASCADE)''')
         c.execute('''CREATE TABLE IF NOT EXISTS traffic (
-                     id SERIAL PRIMARY KEY,
-                     page TEXT NOT NULL,
-                     timestamp TEXT NOT NULL)''')
+                     id SERIAL PRIMARY KEY, page TEXT NOT NULL, timestamp TEXT NOT NULL)''')
         c.execute('''CREATE TABLE IF NOT EXISTS pinned_content (
-                     id SERIAL PRIMARY KEY,
-                     content_type TEXT NOT NULL,
-                     content_id INTEGER,
-                     custom_text TEXT,
-                     date TEXT NOT NULL,
-                     expiry_date TEXT)''')
+                     id SERIAL PRIMARY KEY, content_type TEXT NOT NULL, content_id INTEGER, custom_text TEXT,
+                     date TEXT NOT NULL, expiry_date TEXT)''')
         c.execute('''CREATE TABLE IF NOT EXISTS interactions (
-                     id SERIAL PRIMARY KEY,
-                     ip_address TEXT NOT NULL,
-                     confession_id INTEGER NOT NULL,
-                     action TEXT NOT NULL,
-                     value INTEGER DEFAULT 0,
-                     timestamp TEXT NOT NULL,
-                     UNIQUE(ip_address, confession_id, action),
+                     id SERIAL PRIMARY KEY, ip_address TEXT NOT NULL, confession_id INTEGER NOT NULL, action TEXT NOT NULL,
+                     value INTEGER DEFAULT 0, timestamp TEXT NOT NULL, UNIQUE(ip_address, confession_id, action),
                      FOREIGN KEY (confession_id) REFERENCES confessions(id) ON DELETE CASCADE)''')
         conn.commit()
         print("Database schema initialized successfully.")
@@ -79,11 +50,10 @@ def init_db():
     finally:
         release_db_connection(conn)
 
-# Run init_db() on app startup
-init_db()  # Ensures tables exist on every deploy
+init_db()
 
-ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')  # Move to env vars
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'password123')  # Move to env vars
+ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'password123')
 
 def admin_required(f):
     def wrap(*args, **kwargs):
@@ -142,13 +112,11 @@ def confessions():
         confession_id = request.form['confession_id']
         action_performed = False
 
-        # Helper to check if action exists
         def has_interaction(action):
             c.execute("SELECT id FROM interactions WHERE ip_address = %s AND confession_id = %s AND action = %s",
                       (client_ip, confession_id, action))
             return c.fetchone() is not None
 
-        # Upvote
         if 'upvote' in request.form and not has_interaction('upvote'):
             if not has_interaction('downvote'):
                 c.execute("UPDATE confessions SET upvotes = upvotes + 1 WHERE id = %s", (confession_id,))
@@ -158,8 +126,6 @@ def confessions():
                 flash('Upvoted successfully!', 'success')
             else:
                 flash('You already downvoted this confession.', 'warning')
-
-        # Downvote
         elif 'downvote' in request.form and not has_interaction('downvote'):
             if not has_interaction('upvote'):
                 c.execute("UPDATE confessions SET downvotes = downvotes + 1 WHERE id = %s", (confession_id,))
@@ -169,16 +135,12 @@ def confessions():
                 flash('Downvoted successfully!', 'success')
             else:
                 flash('You already upvoted this confession.', 'warning')
-
-        # Like
         elif 'like' in request.form and not has_interaction('like'):
             c.execute("UPDATE confessions SET likes = likes + 1 WHERE id = %s", (confession_id,))
             c.execute("INSERT INTO interactions (ip_address, confession_id, action, timestamp) VALUES (%s, %s, %s, %s)",
                       (client_ip, confession_id, 'like', datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
             action_performed = True
             flash('Liked successfully!', 'success')
-
-        # Rating
         elif 'rating' in request.form and not has_interaction('rating'):
             rating = int(request.form['rating'])
             c.execute("UPDATE confessions SET rating_total = rating_total + %s, rating_count = rating_count + 1 WHERE id = %s",
@@ -187,8 +149,6 @@ def confessions():
                       (client_ip, confession_id, 'rating', rating, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
             action_performed = True
             flash('Rated successfully!', 'success')
-
-        # Comment (record action once, allow multiple comments)
         elif 'comment' in request.form:
             comment = request.form['comment'].strip()
             if comment:
@@ -202,12 +162,9 @@ def confessions():
 
         if action_performed:
             conn.commit()
-
-        # Redirect to avoid resubmission on refresh
         release_db_connection(conn)
         return redirect(url_for('confessions'))
 
-    # GET request: Fetch confessions and render page
     pinned_content = None
     pinned_name = None
     c.execute("SELECT content_type, content_id, custom_text, expiry_date FROM pinned_content ORDER BY date DESC LIMIT 1")
@@ -231,7 +188,7 @@ def confessions():
     for conf in confessions_list:
         c.execute("SELECT comment, date FROM comments WHERE confession_id = %s ORDER BY date ASC", (conf[0],))
         comments = c.fetchall()
-        comment_count = len(comments)
+        comment_count =Leia mais len(comments)
         avg_rating = (conf[5] / conf[6]) if conf[6] > 0 else 0
         score = conf[9] - conf[10]
         c.execute("SELECT action FROM interactions WHERE ip_address = %s AND confession_id = %s", (client_ip, conf[0]))
@@ -273,7 +230,7 @@ def admin_login():
 @app.route('/admin/logout')
 def admin_logout():
     session.pop('admin_logged_in', None)
-    flash('Logged out successfully.', 'success')
+    flash('Logged out successfully!', 'success')
     return redirect(url_for('confessions'))
 
 @app.route('/admin/dashboard', methods=['GET', 'POST'])
