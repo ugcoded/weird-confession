@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weird Confessions</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body class="{% if dark_mode %}dark-mode{% endif %}">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/confessions">Weird Confessions</a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/submit">Submit</a>
+                <a class="nav-link" href="/random">Random</a>
+                <a class="nav-link" href="/admin/login">Admin</a>
+                <button id="darkModeToggle" class="btn btn-outline-light btn-sm ms-2"><i class="fas fa-moon"></i></button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <h1 class="mb-4 text-center">Weird Confessions</h1>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        {% if pinned_content %}
+            <div class="card mb-4 shadow-sm pinned-content">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="card-title mb-0"><i class="fas fa-thumbtack"></i> Pinned Post</h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">{{ pinned_content }}</p>
+                    <p class="text-muted small">By: {{ pinned_name }}</p>
+                </div>
+            </div>
+        {% endif %}
+
+        <div class="row">
+            {% for confession, comments, avg_rating, comment_count, score, interactions in confessions %}
+                <div class="col-12 col-md-6 col-lg-4 mb-4">
+                    <div class="confession-box {% if request.args.get('highlight')|int == confession[0] %}highlight{% endif %}">
+                        <div class="confession-content">
+                            <div class="confession-text">
+                                <p>{{ confession[1] }}</p>
+                            </div>
+                            <p class="text-muted small">By: {{ confession[2] }} | {{ confession[3] }} | {{ confession[7] }} | Tags: {{ confession[8] }}{% if confession[11] %} | Expires: {{ confession[11] }}{% endif %}</p>
+                            <button class="btn btn-sm btn-outline-info share-btn" data-id="{{ confession[0] }}">Share</button>
+                        </div>
+                        <div class="interaction-section">
+                            <form method="POST" class="d-inline">
+                                <input type="hidden" name="confession_id" value="{{ confession[0] }}">
+                                <button type="submit" name="upvote" class="btn btn-outline-success btn-sm me-1" {% if 'upvote' in interactions or 'downvote' in interactions %}disabled{% endif %}><i class="fas fa-arrow-up"></i> {{ confession[9] }}</button>
+                                <button type="submit" name="downvote" class="btn btn-outline-danger btn-sm me-2" {% if 'downvote' in interactions or 'upvote' in interactions %}disabled{% endif %}><i class="fas fa-arrow-down"></i> {{ confession[10] }}</button>
+                            </form>
+                            <form method="POST" class="d-inline">
+                                <input type="hidden" name="confession_id" value="{{ confession[0] }}">
+                                <button type="submit" name="like" class="btn btn-outline-danger btn-sm me-2" {% if 'like' in interactions %}disabled{% endif %}><i class="fas fa-heart"></i> {{ confession[4] }}</button>
+                            </form>
+                            <span class="rating-display me-2"><i class="fas fa-star"></i> {{ "%.1f" % avg_rating }} ({{ confession[6] }})</span>
+                            <button class="btn btn-outline-primary btn-sm toggle-comments" data-bs-toggle="collapse" data-bs-target="#comments-{{ confession[0] }}">
+                                <i class="fas fa-comment"></i> {{ comment_count }}
+                            </button>
+                            <form method="POST" class="d-inline ms-2">
+                                <input type="hidden" name="confession_id" value="{{ confession[0] }}">
+                                <select name="rating" class="form-select form-select-sm d-inline w-auto" onchange="this.form.submit()" {% if 'rating' in interactions %}disabled{% endif %}>
+                                    <option value="">Rate</option>
+                                    <option value="1">1</option>
+                                    <option value="2">2</option>
+                                    <option value="3">3</option>
+                                    <option value="4">4</option>
+                                    <option value="5">5</option>
+                                </select>
+                            </form>
+                        </div>
+                        <div class="comments-section collapse" id="comments-{{ confession[0] }}">
+                            <div class="comments-header">
+                                <h6 class="mb-0">Comments ({{ comment_count }})</h6>
+                            </div>
+                            <div class="comments-list">
+                                {% for comment, date in comments %}
+                                    <div class="comment-item d-flex mb-3">
+                                        <div class="comment-avatar me-3"><i class="fas fa-user-circle fa-2x text-muted"></i></div>
+                                        <div class="comment-body flex-grow-1">
+                                            <p class="comment-text mb-1">{{ comment }}</p>
+                                            <small class="text-muted">{{ date }}</small>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            <form method="POST" class="comment-form mt-3">
+                                <input type="hidden" name="confession_id" value="{{ confession[0] }}">
+                                <div class="input-group">
+                                    <textarea name="comment" class="form-control" rows="2" placeholder="Add your comment..." required></textarea>
+                                    <button type="submit" class="btn btn-primary">Post</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <footer class="bg-dark text-light py-3 mt-4">
+        <div class="container text-center">
+            <p class="mb-0">&copy; 2025 Weird Confessions. All rights reserved. | <a href="/confessions" class="text-light">Back to Confessions</a></p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('darkModeToggle').addEventListener('click', function() {
+            document.body.classList.toggle('dark-mode');
+            document.cookie = 'dark_mode=' + (document.body.classList.contains('dark-mode') ? 'on' : 'off') + ';path=/';
+        });
+        document.querySelectorAll('.share-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const id = this.dataset.id;
+                const url = `${window.location.origin}/confessions?highlight=${id}`;
+                navigator.clipboard.writeText(url).then(() => alert('Link copied to clipboard!'));
+            });
+        });
+    </script>
+</body>
+</html>
