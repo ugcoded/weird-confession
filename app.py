@@ -14,7 +14,7 @@ db_pool = None
 def get_db_connection():
     global db_pool
     if db_pool is None:
-        db_url = os.environ.get('DATABASE_URL')  # Render sets this
+        db_url = os.environ.get('DATABASE_URL')
         if not db_url:
             raise ValueError("DATABASE_URL environment variable not set")
         db_pool = psycopg2.pool.SimpleConnectionPool(
@@ -27,7 +27,7 @@ def get_db_connection():
 def release_db_connection(conn):
     db_pool.putconn(conn)
 
-# Initialize database schema if needed
+# Initialize database schema
 def init_db():
     conn = get_db_connection()
     c = conn.cursor()
@@ -73,6 +73,9 @@ def init_db():
                  FOREIGN KEY (confession_id) REFERENCES confessions(id) ON DELETE CASCADE)''')
     conn.commit()
     release_db_connection(conn)
+
+# Run init_db() on app startup
+init_db()  # Moved outside __main__
 
 ADMIN_USERNAME = 'admin'  # Consider moving to env vars
 ADMIN_PASSWORD = 'password123'  # Consider moving to env vars
@@ -342,6 +345,5 @@ def admin_dashboard():
                           most_commented=most_commented, total_visits=total_visits)
 
 if __name__ == '__main__':
-    init_db()  # Initialize schema on first run
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
