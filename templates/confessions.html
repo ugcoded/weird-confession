@@ -57,25 +57,20 @@
                                 <p>{{ confession[1] }}</p>
                             </div>
                             <p class="text-muted small">By: {{ confession[2] }} | {{ confession[3] }} | {{ confession[7] }} | Tags: {{ confession[8] }}{% if confession[11] %} | Expires: {{ confession[11] }}{% endif %}</p>
-                            <button class="btn btn-sm btn-outline-info share-btn" data-id="{{ confession[0] }}">Share</button>
                         </div>
                         <div class="interaction-section">
-                            <form method="POST" class="d-inline">
+                            <form method="POST" class="d-inline interaction-form">
                                 <input type="hidden" name="confession_id" value="{{ confession[0] }}">
                                 <button type="submit" name="upvote" class="btn btn-outline-success btn-sm me-1" {% if 'upvote' in interactions or 'downvote' in interactions %}disabled{% endif %}><i class="fas fa-arrow-up"></i> {{ confession[9] }}</button>
-                                <button type="submit" name="downvote" class="btn btn-outline-danger btn-sm me-2" {% if 'downvote' in interactions or 'upvote' in interactions %}disabled{% endif %}><i class="fas fa-arrow-down"></i> {{ confession[10] }}</button>
+                                <button type="submit" name="downvote" class="btn btn-outline-danger btn-sm me-1" {% if 'downvote' in interactions or 'upvote' in interactions %}disabled{% endif %}><i class="fas fa-arrow-down"></i> {{ confession[10] }}</button>
                             </form>
-                            <form method="POST" class="d-inline">
-                                <input type="hidden" name="confession_id" value="{{ confession[0] }}">
-                                <button type="submit" name="like" class="btn btn-outline-danger btn-sm me-2" {% if 'like' in interactions %}disabled{% endif %}><i class="fas fa-heart"></i> {{ confession[4] }}</button>
-                            </form>
-                            <span class="rating-display me-2"><i class="fas fa-star"></i> {{ "%.1f" % avg_rating }} ({{ confession[6] }})</span>
-                            <button class="btn btn-outline-primary btn-sm toggle-comments" data-bs-toggle="collapse" data-bs-target="#comments-{{ confession[0] }}">
+                            <button class="btn btn-sm btn-outline-info share-btn me-1" data-id="{{ confession[0] }}"><i class="fas fa-share"></i></button>
+                            <button class="btn btn-outline-primary btn-sm toggle-comments me-1" data-bs-toggle="collapse" data-bs-target="#comments-{{ confession[0] }}">
                                 <i class="fas fa-comment"></i> {{ comment_count }}
                             </button>
-                            <form method="POST" class="d-inline ms-2">
+                            <form method="POST" class="d-inline rating-form">
                                 <input type="hidden" name="confession_id" value="{{ confession[0] }}">
-                                <select name="rating" class="form-select form-select-sm d-inline w-auto" onchange="this.form.submit()" {% if 'rating' in interactions %}disabled{% endif %}>
+                                <select name="rating" class="form-select form-select-sm d-inline" onchange="this.form.submit()" {% if 'rating' in interactions %}disabled{% endif %}>
                                     <option value="">Rate</option>
                                     <option value="1">1</option>
                                     <option value="2">2</option>
@@ -83,6 +78,11 @@
                                     <option value="4">4</option>
                                     <option value="5">5</option>
                                 </select>
+                            </form>
+                            <span class="rating-display ms-2"><i class="fas fa-star"></i> {{ "%.1f" % avg_rating }} ({{ confession[6] }})</span>
+                            <form method="POST" class="d-inline like-form">
+                                <input type="hidden" name="confession_id" value="{{ confession[0] }}">
+                                <button type="submit" name="like" class="btn btn-outline-danger btn-sm ms-2" {% if 'like' in interactions %}disabled{% endif %}><i class="fas fa-heart"></i> {{ confession[4] }}</button>
                             </form>
                         </div>
                         <div class="comments-section collapse" id="comments-{{ confession[0] }}">
