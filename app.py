@@ -188,7 +188,7 @@ def confessions():
     for conf in confessions_list:
         c.execute("SELECT comment, date FROM comments WHERE confession_id = %s ORDER BY date ASC", (conf[0],))
         comments = c.fetchall()
-        comment_count =Leia mais len(comments)
+        comment_count = len(comments)  # Fixed: Removed "Leia mais"
         avg_rating = (conf[5] / conf[6]) if conf[6] > 0 else 0
         score = conf[9] - conf[10]
         c.execute("SELECT action FROM interactions WHERE ip_address = %s AND confession_id = %s", (client_ip, conf[0]))
