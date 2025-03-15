@@ -1,69 +1,57 @@
 import os
 from flask import Flask, request, render_template, session, redirect, url_for, flash
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
+import psycopg2
+from psycopg2 import pool
 from datetime import datetime, timedelta
 import random
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'your-secret-key-here')
+app.secret_key = os.environ.get('SECRET_KEY', 'b500bf05b424886fb798ce1cb543c923')
 
-# SQLAlchemy configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
-migrate = Migrate(app, db)
+# PostgreSQL connection pool
+db_pool = None
 
-# Models
-class Confession(db.Model):
-    __tablename__ = 'confessions'
-    id = db.Column(db.Integer, primary_key=True)
-    confession = db.Column(db.Text, nullable=False)
-    name = db.Column(db.Text, nullable=False)
-    date = db.Column(db.String(20), nullable=False)
-    likes = db.Column(db.Integer, default=0)
-    dislikes = db.Column(db.Integer, default=0)
-    rating_total = db.Column(db.Float, default=0)
-    rating_count = db.Column(db.Integer, default=0)
-    category = db.Column(db.Text)
-    tags = db.Column(db.Text)
-    upvotes = db.Column(db.Integer, default=0)
-    downvotes = db.Column(db.Integer, default=0)
-    expiry_date = db.Column(db.String(20))
+def get_db_connection():
+    global db_pool
+    if db_pool is None:
+        db_url = os.environ.get('DATABASE_URL')
+        if not db_url:
+            raise ValueError("DATABASE_URL environment variable not set")
+        db_pool = psycopg2.pool.SimpleConnectionPool(1, 20, dsn=db_url, sslmode='require')
+    return db_pool.getconn()
 
-class Comment(db.Model):
-    __tablename__ = 'comments'
-    id = db.Column(db.Integer, primary_key=True)
-    confession_id = db.Column(db.Integer, db.ForeignKey('confessions.id', ondelete='CASCADE'), nullable=False)
-    comment = db.Column(db.Text, nullable=False)
-    date = db.Column(db.String(20), nullable=False)
+def release_db_connection(conn):
+    db_pool.putconn(conn)
 
-class Traffic(db.Model):
-    __tablename__ = 'traffic'
-    id = db.Column(db.Integer, primary_key=True)
-    page = db.Column(db.Text, nullable=False)
-    timestamp = db.Column(db.String(20), nullable=False)
+def init_db():
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute('''CREATE TABLE IF NOT EXISTS confessions (
+                     id SERIAL PRIMARY KEY, confession TEXT NOT NULL, name TEXT NOT NULL, date TEXT NOT NULL,
+                     likes INTEGER DEFAULT 0, rating_total REAL DEFAULT 0, rating_count INTEGER DEFAULT 0,
+                     category TEXT, tags TEXT, upvotes INTEGER DEFAULT 0, downvotes INTEGER DEFAULT 0, expiry_date TEXT)''')
+        c.execute('''CREATE TABLE IF NOT EXISTS comments (
+                     id SERIAL PRIMARY KEY, confession_id INTEGER, comment TEXT NOT NULL, date TEXT NOT NULL,
+                     FOREIGN KEY (confession_id) REFERENCES confessions(id) ON DELETE CASCADE)''')
+        c.execute('''CREATE TABLE IF NOT EXISTS traffic (
+                     id SERIAL PRIMARY KEY, page TEXT NOT NULL, timestamp TEXT NOT NULL)''')
+        c.execute('''CREATE TABLE IF NOT EXISTS pinned_content (
+                     id SERIAL PRIMARY KEY, content_type TEXT NOT NULL, content_id INTEGER, custom_text TEXT,
+                     date TEXT NOT NULL, expiry_date TEXT)''')
+        c.execute('''CREATE TABLE IF NOT EXISTS interactions (
+                     id SERIAL PRIMARY KEY, ip_address TEXT NOT NULL, confession_id INTEGER NOT NULL, action TEXT NOT NULL,
+                     value INTEGER DEFAULT 0, timestamp TEXT NOT NULL, UNIQUE(ip_address, confession_id, action),
+                     FOREIGN KEY (confession_id) REFERENCES confessions(id) ON DELETE CASCADE)''')
+        conn.commit()
+        print("Database schema initialized successfully.")
+    except Exception as e:
+        print(f"Error initializing database: {e}")
+    finally:
+        release_db_connection(conn)
 
-class PinnedContent(db.Model):
-    __tablename__ = 'pinned_content'
-    id = db.Column(db.Integer, primary_key=True)
-    content_type = db.Column(db.Text, nullable=False)
-    content_id = db.Column(db.Integer)
-    custom_text = db.Column(db.Text)
-    date = db.Column(db.String(20), nullable=False)
-    expiry_date = db.Column(db.String(20))
+init_db()
 
-class Interaction(db.Model):
-    __tablename__ = 'interactions'
-    id = db.Column(db.Integer, primary_key=True)
-    ip_address = db.Column(db.Text, nullable=False)
-    confession_id = db.Column(db.Integer, db.ForeignKey('confessions.id', ondelete='CASCADE'), nullable=False)
-    action = db.Column(db.Text, nullable=False)
-    value = db.Column(db.Integer, default=0)
-    timestamp = db.Column(db.String(20), nullable=False)
-    __table_args__ = (db.UniqueConstraint('ip_address', 'confession_id', 'action', name='unique_interaction'),)
-
-# Admin credentials
 ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'password123')
 
@@ -77,12 +65,17 @@ def admin_required(f):
     return wrap
 
 def log_traffic(page):
-    traffic = Traffic(page=page, timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    db.session.add(traffic)
-    db.session.commit()
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("INSERT INTO traffic (page, timestamp) VALUES (%s, %s)",
+              (page, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+    conn.commit()
+    release_db_connection(conn)
 
 def get_client_ip():
-    return request.headers.getlist("X-Forwarded-For")[0] if request.headers.getlist("X-Forwarded-For") else request.remote_addr
+    if request.headers.getlist("X-Forwarded-For"):
+        return request.headers.getlist("X-Forwarded-For")[0]
+    return request.remote_addr
 
 @app.route('/')
 def index():
@@ -91,127 +84,132 @@ def index():
 @app.route('/submit', methods=['GET', 'POST'])
 def submit():
     log_traffic('submit')
+    conn = get_db_connection()
+    c = conn.cursor()
     if request.method == 'POST':
         confession = request.form['confession'].strip()
         name = request.form['name'].strip()
         category = request.form['category']
         tags = request.form['tags'].strip()
         if confession and name:
-            new_confession = Confession(
-                confession=confession,
-                name=name,
-                date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                category=category,
-                tags=tags
-            )
-            db.session.add(new_confession)
-            db.session.commit()
+            c.execute("INSERT INTO confessions (confession, name, date, category, tags) VALUES (%s, %s, %s, %s, %s)",
+                      (confession, name, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), category, tags))
+            conn.commit()
             flash('Confession submitted successfully!', 'success')
+            release_db_connection(conn)
             return redirect(url_for('confessions'))
+    release_db_connection(conn)
     return render_template('submit.html')
 
 @app.route('/confessions', methods=['GET', 'POST'])
 def confessions():
     log_traffic('confessions')
+    conn = get_db_connection()
+    c = conn.cursor()
     client_ip = get_client_ip()
 
     if request.method == 'POST':
-        confession_id = int(request.form['confession_id'])
+        confession_id = request.form['confession_id']
         action_performed = False
-        confession = Confession.query.get_or_404(confession_id)
 
         def has_interaction(action):
-            return Interaction.query.filter_by(ip_address=client_ip, confession_id=confession_id, action=action).first() is not None
+            c.execute("SELECT id FROM interactions WHERE ip_address = %s AND confession_id = %s AND action = %s",
+                      (client_ip, confession_id, action))
+            return c.fetchone() is not None
 
         if 'upvote' in request.form and not has_interaction('upvote'):
             if not has_interaction('downvote'):
-                confession.upvotes += 1
-                db.session.add(Interaction(ip_address=client_ip, confession_id=confession_id, action='upvote', timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                c.execute("UPDATE confessions SET upvotes = upvotes + 1 WHERE id = %s", (confession_id,))
+                c.execute("INSERT INTO interactions (ip_address, confession_id, action, timestamp) VALUES (%s, %s, %s, %s)",
+                          (client_ip, confession_id, 'upvote', datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                 action_performed = True
                 flash('Upvoted successfully!', 'success')
             else:
                 flash('You already downvoted this confession.', 'warning')
         elif 'downvote' in request.form and not has_interaction('downvote'):
             if not has_interaction('upvote'):
-                confession.downvotes += 1
-                db.session.add(Interaction(ip_address=client_ip, confession_id=confession_id, action='downvote', timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                c.execute("UPDATE confessions SET downvotes = downvotes + 1 WHERE id = %s", (confession_id,))
+                c.execute("INSERT INTO interactions (ip_address, confession_id, action, timestamp) VALUES (%s, %s, %s, %s)",
+                          (client_ip, confession_id, 'downvote', datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                 action_performed = True
                 flash('Downvoted successfully!', 'success')
             else:
                 flash('You already upvoted this confession.', 'warning')
         elif 'like' in request.form and not has_interaction('like'):
-            if not has_interaction('dislike'):
-                confession.likes += 1
-                db.session.add(Interaction(ip_address=client_ip, confession_id=confession_id, action='like', timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-                action_performed = True
-                flash('Liked successfully!', 'success')
-            else:
-                flash('You already disliked this confession.', 'warning')
-        elif 'dislike' in request.form and not has_interaction('dislike'):
-            if not has_interaction('like'):
-                confession.dislikes += 1
-                db.session.add(Interaction(ip_address=client_ip, confession_id=confession_id, action='dislike', timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-                action_performed = True
-                flash('Disliked successfully!', 'success')
-            else:
-                flash('You already liked this confession.', 'warning')
+            c.execute("UPDATE confessions SET likes = likes + 1 WHERE id = %s", (confession_id,))
+            c.execute("INSERT INTO interactions (ip_address, confession_id, action, timestamp) VALUES (%s, %s, %s, %s)",
+                      (client_ip, confession_id, 'like', datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+            action_performed = True
+            flash('Liked successfully!', 'success')
         elif 'rating' in request.form and not has_interaction('rating'):
             rating = int(request.form['rating'])
-            confession.rating_total += rating
-            confession.rating_count += 1
-            db.session.add(Interaction(ip_address=client_ip, confession_id=confession_id, action='rating', value=rating, timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+            c.execute("UPDATE confessions SET rating_total = rating_total + %s, rating_count = rating_count + 1 WHERE id = %s",
+                      (rating, confession_id))
+            c.execute("INSERT INTO interactions (ip_address, confession_id, action, value, timestamp) VALUES (%s, %s, %s, %s, %s)",
+                      (client_ip, confession_id, 'rating', rating, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
             action_performed = True
             flash('Rated successfully!', 'success')
         elif 'comment' in request.form:
-            comment_text = request.form['comment'].strip()
-            if comment_text:
-                new_comment = Comment(confession_id=confession_id, comment=comment_text, date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-                db.session.add(new_comment)
+            comment = request.form['comment'].strip()
+            if comment:
+                c.execute("INSERT INTO comments (confession_id, comment, date) VALUES (%s, %s, %s)",
+                          (confession_id, comment, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                 if not has_interaction('comment'):
-                    db.session.add(Interaction(ip_address=client_ip, confession_id=confession_id, action='comment', timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+                    c.execute("INSERT INTO interactions (ip_address, confession_id, action, timestamp) VALUES (%s, %s, %s, %s)",
+                              (client_ip, confession_id, 'comment', datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
                 action_performed = True
                 flash('Comment added successfully!', 'success')
 
         if action_performed:
-            db.session.commit()
+            conn.commit()
+        release_db_connection(conn)
         return redirect(url_for('confessions'))
 
-    pinned = PinnedContent.query.order_by(PinnedContent.date.desc()).first()
     pinned_content = None
     pinned_name = None
-    if pinned and pinned.expiry_date:
-        expiry_date = datetime.strptime(pinned.expiry_date, "%Y-%m-%d %H:%M:%S")
+    c.execute("SELECT content_type, content_id, custom_text, expiry_date FROM pinned_content ORDER BY date DESC LIMIT 1")
+    pinned = c.fetchone()
+    if pinned and pinned[3]:
+        expiry_date = datetime.strptime(pinned[3], "%Y-%m-%d %H:%M:%S")
         if expiry_date > datetime.now():
-            if pinned.content_type == 'confession' and pinned.content_id:
-                conf = Confession.query.get(pinned.content_id)
-                if conf:
-                    pinned_content, pinned_name = conf.confession, conf.name
-            elif pinned.content_type == 'post':
-                pinned_content, pinned_name = pinned.custom_text, "Admin"
+            if pinned[0] == 'confession' and pinned[1]:
+                c.execute("SELECT confession, name FROM confessions WHERE id = %s", (pinned[1],))
+                result = c.fetchone()
+                if result:
+                    pinned_content, pinned_name = result
+            elif pinned[0] == 'post':
+                pinned_content = pinned[2]
+                pinned_name = "Admin"
 
-    confessions = Confession.query.filter(
-        (Confession.expiry_date.is_(None)) | (Confession.expiry_date > datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    ).order_by(Confession.date.desc()).all()
+    c.execute("SELECT id, confession, name, date, likes, rating_total, rating_count, category, tags, upvotes, downvotes, expiry_date FROM confessions WHERE expiry_date IS NULL OR expiry_date > %s ORDER BY date DESC",
+              (datetime.now().strftime("%Y-%m-%d %H:%M:%S"),))
+    confessions_list = c.fetchall()
     confessions_with_data = []
-    for conf in confessions:
-        comments = Comment.query.filter_by(confession_id=conf.id).order_by(Comment.date.asc()).all()
-        comment_count = len(comments)
-        avg_rating = (conf.rating_total / conf.rating_count) if conf.rating_count > 0 else 0
-        score = conf.upvotes - conf.downvotes
-        interactions = {i.action for i in Interaction.query.filter_by(ip_address=client_ip, confession_id=conf.id).all()}
-        confessions_with_data.append((conf, [(c.comment, c.date) for c in comments], avg_rating, comment_count, score, interactions))
+    for conf in confessions_list:
+        c.execute("SELECT comment, date FROM comments WHERE confession_id = %s ORDER BY date ASC", (conf[0],))
+        comments = c.fetchall()
+        comment_count = len(comments)  # Fixed: Removed "Leia mais"
+        avg_rating = (conf[5] / conf[6]) if conf[6] > 0 else 0
+        score = conf[9] - conf[10]
+        c.execute("SELECT action FROM interactions WHERE ip_address = %s AND confession_id = %s", (client_ip, conf[0]))
+        interactions = {row[0] for row in c.fetchall()}
+        confessions_with_data.append((conf, comments, avg_rating, comment_count, score, interactions))
 
+    release_db_connection(conn)
     dark_mode = request.cookies.get('dark_mode', 'off') == 'on'
-    return render_template('confessions.html', confessions=confessions_with_data, pinned_content=pinned_content, 
+    return render_template('confessions.html', confessions=confessions_with_data, pinned_content=pinned_content,
                           pinned_name=pinned_name, dark_mode=dark_mode)
 
 @app.route('/random')
 def random_confession():
-    valid_ids = [c.id for c in Confession.query.filter(
-        (Confession.expiry_date.is_(None)) | (Confession.expiry_date > datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    ).all()]
-    if valid_ids:
-        random_id = random.choice(valid_ids)
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("SELECT id FROM confessions WHERE expiry_date IS NULL OR expiry_date > %s",
+              (datetime.now().strftime("%Y-%m-%d %H:%M:%S"),))
+    ids = c.fetchall()
+    release_db_connection(conn)
+    if ids:
+        random_id = random.choice(ids)[0]
         return redirect(url_for('confessions') + f'?highlight={random_id}')
     return redirect(url_for('confessions'))
 
@@ -238,63 +236,75 @@ def admin_logout():
 @app.route('/admin/dashboard', methods=['GET', 'POST'])
 @admin_required
 def admin_dashboard():
+    conn = get_db_connection()
+    c = conn.cursor()
+
     if request.method == 'POST':
         if 'delete_confession' in request.form:
-            confession_id = int(request.form['confession_id'])
-            Confession.query.filter_by(id=confession_id).delete()
-            db.session.commit()
+            confession_id = request.form['confession_id']
+            c.execute("DELETE FROM confessions WHERE id = %s", (confession_id,))
+            conn.commit()
             flash('Confession deleted.', 'success')
         elif 'delete_comment' in request.form:
-            comment_id = int(request.form['comment_id'])
-            Comment.query.filter_by(id=comment_id).delete()
-            db.session.commit()
+            comment_id = request.form['comment_id']
+            c.execute("DELETE FROM comments WHERE id = %s", (comment_id,))
+            conn.commit()
             flash('Comment deleted.', 'success')
         elif 'pin_confession' in request.form:
-            confession_id = int(request.form['confession_id'])
+            confession_id = request.form['confession_id']
             days = int(request.form['pin_days'])
             expiry_date = datetime.now() + timedelta(days=days)
-            PinnedContent.query.delete()
-            db.session.add(PinnedContent(content_type='confession', content_id=confession_id, date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), expiry_date=expiry_date.strftime("%Y-%m-%d %H:%M:%S")))
-            db.session.commit()
+            c.execute("DELETE FROM pinned_content")
+            c.execute("INSERT INTO pinned_content (content_type, content_id, date, expiry_date) VALUES (%s, %s, %s, %s)",
+                      ('confession', confession_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), expiry_date.strftime("%Y-%m-%d %H:%M:%S")))
+            conn.commit()
             flash(f'Confession pinned for {days} days.', 'success')
         elif 'pin_post' in request.form:
             custom_text = request.form['custom_text'].strip()
             days = int(request.form['pin_days'])
             if custom_text:
                 expiry_date = datetime.now() + timedelta(days=days)
-                PinnedContent.query.delete()
-                db.session.add(PinnedContent(content_type='post', custom_text=custom_text, date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"), expiry_date=expiry_date.strftime("%Y-%m-%d %H:%M:%S")))
-                db.session.commit()
+                c.execute("DELETE FROM pinned_content")
+                c.execute("INSERT INTO pinned_content (content_type, custom_text, date, expiry_date) VALUES (%s, %s, %s, %s)",
+                          ('post', custom_text, datetime.now().strftime("%Y-%m-%d %H:%M:%S"), expiry_date.strftime("%Y-%m-%d %H:%M:%S")))
+                conn.commit()
                 flash(f'Custom post pinned for {days} days.', 'success')
         elif 'delete_pin' in request.form:
-            PinnedContent.query.delete()
-            db.session.commit()
+            c.execute("DELETE FROM pinned_content")
+            conn.commit()
             flash('Pinned content removed.', 'success')
         elif 'set_expiry' in request.form:
-            confession_id = int(request.form['confession_id'])
+            confession_id = request.form['confession_id']
             days = int(request.form['expiry_days'])
-            conf = Confession.query.get_or_404(confession_id)
             if days > 0:
-                conf.expiry_date = (datetime.now() + timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S")
+                expiry_date = datetime.now() + timedelta(days=days)
+                c.execute("UPDATE confessions SET expiry_date = %s WHERE id = %s",
+                          (expiry_date.strftime("%Y-%m-%d %H:%M:%S"), confession_id))
                 flash(f'Confession set to expire in {days} days.', 'success')
             else:
-                conf.expiry_date = None
+                c.execute("UPDATE confessions SET expiry_date = NULL WHERE id = %s", (confession_id,))
                 flash('Expiry removed from confession.', 'success')
-            db.session.commit()
+            conn.commit()
 
-    confessions = Confession.query.order_by(Confession.date.desc()).all()
+    c.execute("SELECT id, confession, name, date, likes, rating_total, rating_count, expiry_date FROM confessions ORDER BY date DESC")
+    confessions_list = c.fetchall()
     confessions_with_comments = []
-    for conf in confessions:
-        comments = Comment.query.filter_by(confession_id=conf.id).order_by(Comment.date.asc()).all()
-        avg_rating = (conf.rating_total / conf.rating_count) if conf.rating_count > 0 else 0
-        confessions_with_comments.append((conf, [(c.id, c.comment, c.date) for c in comments], avg_rating))
+    for conf in confessions_list:
+        c.execute("SELECT id, comment, date FROM comments WHERE confession_id = %s ORDER BY date ASC", (conf[0],))
+        comments = c.fetchall()
+        avg_rating = (conf[5] / conf[6]) if conf[6] > 0 else 0
+        confessions_with_comments.append((conf, comments, avg_rating))
 
-    most_liked = Confession.query.order_by(Confession.likes.desc()).first()
-    most_commented = db.session.query(Confession, db.func.count(Comment.id).label('comment_count')).outerjoin(Comment).group_by(Confession).order_by(db.text('comment_count DESC')).first()
-    total_visits = Traffic.query.count()
+    c.execute("SELECT id, confession, name, likes FROM confessions ORDER BY likes DESC LIMIT 1")
+    most_liked = c.fetchone()
+    c.execute("SELECT c.id, c.confession, c.name, COUNT(com.id) as comment_count FROM confessions c LEFT JOIN comments com ON c.id = com.confession_id GROUP BY c.id, c.confession, c.name ORDER BY comment_count DESC LIMIT 1")
+    most_commented = c.fetchone()
+    c.execute("SELECT COUNT(*) FROM traffic")
+    total_visits = c.fetchone()[0]
 
+    release_db_connection(conn)
     return render_template('admin_dashboard.html', confessions=confessions_with_comments, most_liked=most_liked,
-                          most_commented=most_commented[0] if most_commented else None, total_visits=total_visits)
+                          most_commented=most_commented, total_visits=total_visits)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
