@@ -1,5 +1,5 @@
 import os
-from flask import Flask, request, render_template, session, redirect, url_for, flash
+from flask import Flask, send_from_directory, request, render_template, session, redirect, url_for, flash
 import psycopg2
 from psycopg2 import pool
 from datetime import datetime, timedelta
@@ -76,6 +76,9 @@ def get_client_ip():
     if request.headers.getlist("X-Forwarded-For"):
         return request.headers.getlist("X-Forwarded-For")[0]
     return request.remote_addr
+    @app.route('/ads.txt')
+def serve_ads():
+    return send_from_directory('.', 'ads.txt')
 
 @app.route('/')
 def index():
